@@ -1,75 +1,44 @@
-import json
-import cv2
-import shutil
-import numpy
-import numpy as np
-import glob
-import cv2
-import imageio
-import subprocess
-from augment import distort, stretch, perspective
-import os
-from sklearn.model_selection import  train_test_split
-# from scikit_learn
-root = "/home/ubuntu/Pictures/data_print"
-train_dst_dir = "/home/ubuntu/Pictures/data_print/train_data"
-if not os.path.exists(train_dst_dir):
-    os.makedirs(train_dst_dir)
-val_dst_dir = "/home/ubuntu/Pictures/data_print/val_data"
-if not os.path.exists(val_dst_dir):
-    os.makedirs(val_dst_dir)
-# import cairosvg
-# cairosvg.svg2png()
-file_in = '/home/ubuntu/Pictures/data_print/train.norm.lst'
-file_out_train = '/home/ubuntu/Pictures/data_print/train.norm.txt'
-file_out_test = '/home/ubuntu/Pictures/data_print/val.norm.txt'
 
 
-def list_to_img(list, image_path, output_json_name):
-    with open(output_json_name, 'w') as f_train:
-        f_train_to_write = []
-        for idx, item in enumerate(list):
-            item = item.replace('\n', '')
-            png_path = image_path+'/' + str(idx) + '.png'
-            svg_path = image_path+'/' + str(idx) + '.svg'
-            tmp_path = image_path+'/' + str(idx) + '.tmp'
-            j_dict = {"ImageFile": png_path, "Label": item.replace('\n','')}
-            f_train_to_write.append(j_dict)
-            if os.path.exists(png_path):
-                continue
-            with open(tmp_path, 'w') as tmp:
-                tmp.write(item)
+class RenderMathjax:
+    """
+    usage:
+        import sys
+        sys.path.append("/home/ubuntu/Pictures/data_generator")
+        from latex_render import RenderMathjax
+    """
 
-            cmd = "cat {}|/home/ubuntu/node/bin/node /home/ubuntu/WebstormProjects/katex-regulator/mathjax_test.js > {}".format(tmp_path,svg_path)
-            cmd = cmd + "&&"
-            cmd = cmd + "cairosvg -d 100 -s 2 {} -o {}".format(svg_path, png_path)
-            
-            cmd = cmd + "&&"
-            cmd = cmd + "python print_apng_to_png.py {}".format(png_path)
-            
-            cmd = cmd + "&&"
-            cmd = cmd + "rm {} {}".format(svg_path, tmp_path)
-            
-            print(item)
-            print("____________________________")
-            print(png_path)
-            subprocess.call(cmd, shell=True)
-            
-        for dic in f_train_to_write:
-            f_train.write(json.dumps(dic, ensure_ascii=False))
-            f_train.write('\n')
+    def __init__(self, debug=False, format='mathml'):
+        self.mathml_url = "http://192.168.8.156:4000/mathml"
+        self.latex_url = "http://192.168.8.156:4000/latex"
+        # self.latex_url = "http://localhost:4000/latex"
+        # self.mathml_url = "http://localhost:4000/mathml"
+        self.debug = debug
+        self.format = format
 
+    def process(self, latex_input):
+        if self.format == 'mathml':
+            result = post(url=self.mathml_url, data=latex_input.encode('utf-8'))
+        else:
+            result = post(url=self.latex_url, data=latex_input.encode('utf-8'))
+            # print(result.json())
 
-if __name__ == '__main__':
+        result_json = result.json()
+        if not bool(result_json) or result_json is None:
+            raise "format error,try to change url(mathml or latex)"
+        code = result_json['code']
+        result = result_json['result']
 
-    with open(file_in, 'r', encoding='utf-8') as f:
-        all_list = []
-        for idx, i in enumerate(f.readlines()):
-            i = i.strip('\n')
-            if len(i) < 1:
-                continue
-            all_list.append(i)
-        train, test = train_test_split(all_list, test_size=0.0001, random_state=42)
+        if code:
+            file_bytes = cairosvg.svg2png(bytestring=result.encode('utf-8'), background_color='white',dpi=200)
+            input_image = Image.open(io.BytesIO(file_bytes))
+            input_image = np.asarray(input_image)
 
-        # list_to_img(list=train, image_path=train_dst_dir, output_json_name=file_out_train)
-        list_to_img(list=test, image_path=val_dst_dir, output_json_name=file_out_test)
+            return input_image
+        else:
+            print(result_json)
+            return result
+
+    def process_list(self, list_input):
+        result = Parallel(n_jobs=6, backend='loky')(delayed(self.process)(i) for i in list_input)
+        return result
