@@ -1,5 +1,5 @@
 {
-  "name": "katex-regulator-dev",
+  "name": "mathjax-render",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -9,8 +9,13 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "type": "module",
   "dependencies": {
-    "katex": "^0.13.18"
-  },
-  "type": "module"
+    "cluster": "^0.7.7",
+    "dom-to-svg": "^0.12.2",
+    "express": "^4.17.3",
+    "mathjax": "^3.2.0",
+    "mathjax-full": "^3.2.0",
+    "rehype-mathjax": "^4.0.2"
+  }
 }
